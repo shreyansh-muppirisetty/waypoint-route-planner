@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const BRAND_MARK = "/manus-storage/waypoint-mark_91de7cf3_4ec52a8d.webp";
+const BRAND_MARK = "/manus-storage/waypoint-mark_91de7cf3_8c05158d.webp";
 const CAFE_IMAGE = "/manus-storage/place-cafe_06229247.png";
 const PARK_IMAGE = "/manus-storage/place-park_f72255d5.png";
 
