@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock3,
+  Crosshair,
   Download,
   Footprints,
   Fuel,
@@ -321,8 +322,11 @@ export default function Home() {
   const [isDriveMode, setIsDriveMode] = useState(false);
   const [directionSteps, setDirectionSteps] = useState<DirectionStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [currentSpeed, setCurrentSpeed] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(0);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Attach existing map to drive mode fullscreen
+  // Attach existing map to drive mode fullscreen and track GPS
   useEffect(() => {
     if (!isDriveMode || !mapRef.current) return;
     const driveModeContainer = document.getElementById('drive-mode-map');
@@ -335,10 +339,52 @@ export default function Home() {
     driveModeContainer.appendChild(mapElement);
     mapRef.current.setOptions({ fullscreenControl: false });
     
+    let watchId: number | null = null;
+    let userMarker: google.maps.marker.AdvancedMarkerElement | null = null;
+    
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude, speed } = position.coords;
+          const loc = { lat: latitude, lng: longitude };
+          setUserLocation(loc);
+          setCurrentSpeed(speed ? Math.round(speed * 2.237) : 0);
+          
+          if (mapRef.current) {
+            mapRef.current.setCenter(loc);
+            mapRef.current.setZoom(17);
+            
+            if (!userMarker) {
+              const markerDiv = document.createElement('div');
+              markerDiv.innerHTML = '<div style="width: 24px; height: 24px; background: #0066ff; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>';
+              userMarker = new google.maps.marker.AdvancedMarkerElement({
+                map: mapRef.current,
+                position: loc,
+                content: markerDiv,
+              });
+            } else {
+              userMarker.position = loc;
+            }
+          }
+          
+          if (directionSteps[currentStepIndex]) {
+            setRemainingTime(directionSteps[currentStepIndex].duration);
+          }
+        },
+        (error) => {
+          console.warn('Geolocation error:', error);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    }
+    
     return () => {
       const mapSection = document.querySelector('.map-panel');
       if (mapSection && mapElement && mapElement.parentNode) {
         mapElement.parentNode.removeChild(mapElement);
+      }
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
       }
     };
   }, [isDriveMode]);
@@ -1630,70 +1676,55 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex flex-col bg-black">
           <div className="h-full w-full" id="drive-mode-map" />
 
-          <button
-            type="button"
-            onClick={() => setIsDriveMode(false)}
-            className="absolute top-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-black/70 hover:bg-black/90 text-white rounded-lg transition"
-            aria-label="Exit drive mode"
-          >
-            <X className="size-5" />
-            Exit
-          </button>
-
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent p-6 pb-8">
-            <div className="max-w-2xl mx-auto">
-              <div className="mb-6">
-                <div className="text-white/60 text-sm font-semibold mb-2 uppercase tracking-wide">
-                  Step {currentStepIndex + 1} of {directionSteps.length}
-                </div>
-                <div className="text-white text-3xl font-bold leading-tight mb-4">
-                  {directionSteps[currentStepIndex]?.instruction}
-                </div>
-                <div className="flex items-center gap-6 text-white/80">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="size-5 text-vermilion" />
-                    <span className="text-lg font-semibold">
-                      {formatDistanceShort(directionSteps[currentStepIndex]?.distance || 0)}
-                    </span>
+          <div className="absolute top-0 left-0 right-0 p-4 z-20">
+            <div className="max-w-sm mx-auto bg-teal-600 rounded-2xl p-4 text-white shadow-lg">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="text-xs font-semibold opacity-90 mb-1">Turn</div>
+                  <div className="text-xl font-bold leading-tight mb-2">
+                    {directionSteps[currentStepIndex]?.instruction || "Destination"}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="size-5 text-vermilion" />
-                    <span className="text-lg font-semibold">
-                      {formatDurationShort(directionSteps[currentStepIndex]?.duration || 0)}
-                    </span>
+                  <div className="text-sm opacity-90">
+                    {formatDistanceShort(directionSteps[currentStepIndex]?.distance || 0)}
                   </div>
                 </div>
-              </div>
-
-              {currentStepIndex < directionSteps.length - 1 && (
-                <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-                  <div className="text-white/50 text-xs font-semibold mb-1 uppercase">Next</div>
-                  <div className="text-white/80 text-sm">
-                    {directionSteps[currentStepIndex + 1]?.instruction}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
-                  disabled={currentStepIndex === 0}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition font-semibold"
-                  aria-label="Previous step"
+                  onClick={() => {
+                    if (mapRef.current) {
+                      const currentZoom = mapRef.current.getZoom() || 13;
+                      mapRef.current.setZoom(Math.min(currentZoom + 1, 21));
+                    }
+                  }}
+                  className="flex items-center justify-center w-10 h-10 bg-white rounded-full text-teal-600 hover:bg-white/90 transition flex-shrink-0"
+                  aria-label="Zoom in"
                 >
-                  <ChevronLeft className="size-5" />
-                  Previous
+                  <Zap className="size-5" />
                 </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute bottom-0 left-0 right-0 p-4 z-20 bg-gradient-to-t from-black via-black/95 to-transparent">
+            <div className="max-w-sm mx-auto">
+              <div className="flex items-center justify-between text-white">
+                <div className="flex items-baseline gap-1">
+                  <div className="text-2xl font-bold">{currentSpeed}</div>
+                  <div className="text-xs opacity-75">mph</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold">
+                    {formatDurationShort(directionSteps[currentStepIndex]?.duration || 0)}
+                  </div>
+                  <div className="text-xs opacity-75">remaining</div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setCurrentStepIndex(Math.min(directionSteps.length - 1, currentStepIndex + 1))}
-                  disabled={currentStepIndex === directionSteps.length - 1}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-vermilion hover:bg-vermilion/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition font-semibold"
-                  aria-label="Next step"
+                  onClick={() => setIsDriveMode(false)}
+                  className="text-red-500 font-semibold hover:text-red-400 transition text-sm"
+                  aria-label="Exit drive mode"
                 >
-                  Next
-                  <ChevronRight className="size-5" />
+                  Exit
                 </button>
               </div>
             </div>
