@@ -1411,11 +1411,6 @@ export default function Home() {
           className="h-full min-h-[42vh] w-full"
         />
 
-        <div className="map-brand-chip">
-          <img src={BRAND_MARK} alt="" className="size-6 object-contain" />
-          <span>Live route canvas</span>
-        </div>
-
         <button
           type="button"
           onClick={fitAllStops}
