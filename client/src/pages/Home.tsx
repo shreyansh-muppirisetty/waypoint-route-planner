@@ -585,114 +585,60 @@ export default function Home() {
 
     setIsAddingChargingStops(true);
     try {
-      const totalDistanceKm = routeSummary.distanceMeters / 1000;
-      const rangeKm = evRange;
-      const chargingStopsNeeded = Math.floor(totalDistanceKm / rangeKm);
-
-      if (chargingStopsNeeded <= 0) {
-        toast.success("Route is within EV range—no charging stops needed!");
+      const origin = `${resolvedStops[0].location?.lat},${resolvedStops[0].location?.lng}`;
+      const destination = `${resolvedStops[resolvedStops.length - 1].location?.lat},${resolvedStops[resolvedStops.length - 1].location?.lng}`;
+      const via = resolvedStops.slice(1, -1).map(s => `${s.location?.lat},${s.location?.lng}`).join(';');
+      
+      const url = `https://router.hereapi.com/v8/routes?transportMode=car&origin=${origin}&destination=${destination}${via ? `&via=${via}` : ''}&ev[chargingCapacity]=${evRange}&return=polyline,summary`;
+      
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${import.meta.env.VITE_FRONTEND_FORGE_API_KEY}` }
+      });
+      const data = await response.json();
+      
+      if (!data.routes || data.routes.length === 0) {
+        toast.warning("No charging stops needed for this route");
         setIsAddingChargingStops(false);
         return;
       }
 
-      // Calculate cumulative distances between consecutive stops
-      const cumulativeDistances = [0];
-      let total = 0;
-      for (let i = 0; i < resolvedStops.length - 1; i++) {
-        const legDist = routeSummary.legs && routeSummary.legs[i]
-          ? routeSummary.legs[i].distance.value / 1000
-          : (routeSummary.distanceMeters / 1000) / (resolvedStops.length - 1);
-        total += legDist;
-        cumulativeDistances.push(total);
-      }
-
-      // Calculate charging positions at regular intervals
-      const chargingLocations: { lat: number; lng: number; distanceKm: number }[] = [];
-      for (let i = 1; i <= chargingStopsNeeded; i++) {
-        const targetDist = i * rangeKm;
-        let legIndex = 0;
-        for (let j = 0; j < cumulativeDistances.length - 1; j++) {
-          if (targetDist >= cumulativeDistances[j] && targetDist <= cumulativeDistances[j + 1]) {
-            legIndex = j;
-            break;
-          }
-        }
-        const legStart = resolvedStops[legIndex].location!;
-        const legEnd = resolvedStops[legIndex + 1].location!;
-        const legDistKm = cumulativeDistances[legIndex + 1] - cumulativeDistances[legIndex];
-        const distIntoLeg = targetDist - cumulativeDistances[legIndex];
-        const fraction = legDistKm > 0 ? distIntoLeg / legDistKm : 0;
-        chargingLocations.push({
-          lat: legStart.lat + (legEnd.lat - legStart.lat) * fraction,
-          lng: legStart.lng + (legEnd.lng - legStart.lng) * fraction,
-          distanceKm: targetDist,
-        });
-      }
-
-      // Find nearest charging stations using OpenChargeMap API
-      const newStops = [...stops];
-      let addedCount = 0;
-
-      for (const chargingLoc of chargingLocations) {
-        try {
-          // Use a simple mock dataset of major EV charging networks
-          // In production, this would call a backend endpoint that proxies OpenChargeMap or similar
-          const operators = [
-            { name: "Tesla Supercharger", power: "250 kW" },
-            { name: "Ionity", power: "350 kW" },
-            { name: "EVgo", power: "150 kW" },
-            { name: "Electrify America", power: "200 kW" },
-            { name: "ChargePoint", power: "50 kW" },
-          ];
-          // Use seeded selection based on coordinates for consistent operator per location
-          const seed = Math.abs(Math.floor(chargingLoc.lat * 10000 + chargingLoc.lng * 10000)) % operators.length;
-          const operator = operators[seed];
-
-          const chargingStop: Stop = {
-            id: makeId(),
-            label: `${operator.name} (${operator.power})`,
-            address: `Charging Station - ${operator.power} DC Fast Charging`,
-            placeId: `ev-charger-${makeId()}`,
-            location: {
-              lat: chargingLoc.lat,
-              lng: chargingLoc.lng,
-            },
-          };
-
-          // Find the right position to insert the charging stop
-          const insertAfterIndex = resolvedStops.findIndex((stop, idx) => {
-            const nextStop = resolvedStops[idx + 1];
-            if (!nextStop) return false;
-            const cumDist = cumulativeDistances[idx + 1];
-            return cumDist >= chargingLoc.distanceKm;
-          });
-
-          if (insertAfterIndex >= 0) {
-            const stopId = resolvedStops[insertAfterIndex].id;
-            const insertIdx = newStops.findIndex(s => s.id === stopId);
-            if (insertIdx >= 0) {
-              newStops.splice(insertIdx + 1, 0, chargingStop);
-              addedCount++;
+      const route = data.routes[0];
+      const chargingStops: Stop[] = [];
+      
+      if (route.sections) {
+        for (const section of route.sections) {
+          if (section.chargingStations && section.chargingStations.length > 0) {
+            for (const station of section.chargingStations) {
+              const stop: Stop = {
+                id: makeId(),
+                label: `Charging Station (${station.power || 'Unknown'} kW)`,
+                address: station.name || 'EV Charging Station',
+                placeId: `here-charger-${makeId()}`,
+                location: {
+                  lat: station.position.latitude,
+                  lng: station.position.longitude,
+                },
+              };
+              chargingStops.push(stop);
             }
           }
-        } catch (error) {
-          console.warn(`Failed to add charger at ${chargingLoc.lat}, ${chargingLoc.lng}:`, error);
         }
       }
 
-      setStops(newStops);
-      if (addedCount > 0) {
-        toast.success(`Added ${addedCount} optimal charging stops to your route`);
+      if (chargingStops.length > 0) {
+        const newStops = [...stops, ...chargingStops];
+        setStops(newStops);
+        toast.success(`Added ${chargingStops.length} optimal charging stops via HERE API`);
       } else {
-        toast.warning("No charging stations found along the route");
+        toast.warning("No charging stops found along the route");
       }
     } catch (error) {
-      console.error("Failed to add charging stops", error);
-      toast.error("Could not add charging stops");
+      console.error("HERE API error:", error);
+      toast.error("Could not fetch charging stops from HERE API");
     } finally {
       setIsAddingChargingStops(false);
     }
-  }, [resolvedStops, routeSummary.distanceMeters, routeSummary.legs, evRange, stops]);
+  }, [resolvedStops, evRange, stops]);
 
   // Fetch sightseeing attractions by interest
   useEffect(() => {
