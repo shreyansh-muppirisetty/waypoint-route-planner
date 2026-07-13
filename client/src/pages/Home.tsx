@@ -319,9 +319,24 @@ export default function Home() {
   const directionsResultRef = useRef<google.maps.DirectionsResult | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
+    const [currentLeg, setCurrentLeg] = useState(0);
+  const stopsSegmentsRef = useRef<Stop[][]>([]);
 
-
-
+  // Split stops into 10-stop segments for Google Maps navigation
+  const splitIntoLegs = useCallback((allStops: Stop[]) => {
+    const segments: Stop[][] = [];
+    const STOPS_PER_LEG = 10;
+    
+    for (let i = 0; i < allStops.length; i += STOPS_PER_LEG - 1) {
+      const end = Math.min(i + STOPS_PER_LEG, allStops.length);
+      segments.push(allStops.slice(i, end));
+      if (end === allStops.length) break;
+    }
+    
+    stopsSegmentsRef.current = segments;
+    setCurrentLeg(0);
+    return segments;
+  }, []);
 
   // Load route from URL params on mount
   useEffect(() => {
@@ -1505,23 +1520,50 @@ export default function Home() {
             Times update when the route changes
           </div>
           {routeSummary && !isCalculating && (
-            <button
-              type="button"
-              onClick={() => {
-                if (stops.length >= 2 && stops[0].location && stops[stops.length - 1].location) {
-                  const waypoints = stops.slice(1, -1).map(s => `${s.location?.lat},${s.location?.lng}`).join('|');
-                  const origin = `${stops[0].location?.lat},${stops[0].location?.lng}`;
-                  const destination = `${stops[stops.length - 1].location?.lat},${stops[stops.length - 1].location?.lng}`;
-                  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
-                  window.open(url, '_blank');
-                }
-              }}
-              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-vermilion hover:bg-vermilion/90 text-white rounded-lg transition font-semibold"
-              aria-label="Open in Google Maps"
-            >
-              <Navigation className="size-4" />
-              Open in Google Maps
-            </button>
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const legs = stopsSegmentsRef.current.length > 0 ? stopsSegmentsRef.current : splitIntoLegs(stops);
+                  const currentLegStops = legs[currentLeg];
+                  if (currentLegStops && currentLegStops.length >= 2 && currentLegStops[0].location && currentLegStops[currentLegStops.length - 1].location) {
+                    const waypoints = currentLegStops.slice(1, -1).map(s => `${s.location?.lat},${s.location?.lng}`).join('|');
+                    const origin = `${currentLegStops[0].location?.lat},${currentLegStops[0].location?.lng}`;
+                    const destination = `${currentLegStops[currentLegStops.length - 1].location?.lat},${currentLegStops[currentLegStops.length - 1].location?.lng}`;
+                    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
+                    window.open(url, '_blank');
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-vermilion hover:bg-vermilion/90 text-white rounded-lg transition font-semibold"
+                aria-label="Open in Google Maps"
+              >
+                <Navigation className="size-4" />
+                Leg {currentLeg + 1} in Google Maps
+              </button>
+              {stopsSegmentsRef.current.length > 1 && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentLeg(Math.max(0, currentLeg - 1))}
+                    disabled={currentLeg === 0}
+                    className="flex-1 px-3 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition text-sm"
+                  >
+                    ← Previous
+                  </button>
+                  <div className="flex-1 flex items-center justify-center text-xs text-white/70 bg-white/5 rounded-lg">
+                    {currentLeg + 1} / {stopsSegmentsRef.current.length}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentLeg(Math.min(stopsSegmentsRef.current.length - 1, currentLeg + 1))}
+                    disabled={currentLeg === stopsSegmentsRef.current.length - 1}
+                    className="flex-1 px-3 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition text-sm"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </aside>
       </section>
