@@ -98,6 +98,7 @@ type Stop = {
   address: string;
   placeId?: string;
   location?: google.maps.LatLngLiteral;
+  notes?: string;
 };
 
 type NearbyPlace = {
@@ -1225,6 +1226,13 @@ export default function Home() {
                           {stop.address}
                         </p>
                       ) : null}
+                      <textarea
+                        placeholder="Add notes (parking, meeting time, etc)"
+                        value={stop.notes || ""}
+                        onChange={(e) => updateStop(stop.id, { notes: e.target.value })}
+                        className="mt-2 w-full rounded-sm border border-ink/20 bg-white/50 px-2 py-1.5 text-[11px] text-ink placeholder-ink/40 focus:border-ink/40 focus:outline-none"
+                        rows={2}
+                      />
                     </div>
                   </article>
                 );
