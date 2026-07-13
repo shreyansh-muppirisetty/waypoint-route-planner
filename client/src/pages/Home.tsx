@@ -319,75 +319,9 @@ export default function Home() {
   const directionsResultRef = useRef<google.maps.DirectionsResult | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
-  const [isDriveMode, setIsDriveMode] = useState(false);
-  const [directionSteps, setDirectionSteps] = useState<DirectionStep[]>([]);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [currentSpeed, setCurrentSpeed] = useState(0);
-  const [remainingTime, setRemainingTime] = useState(0);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Attach existing map to drive mode fullscreen and track GPS
-  useEffect(() => {
-    if (!isDriveMode || !mapRef.current) return;
-    const driveModeContainer = document.getElementById('drive-mode-map');
-    if (!driveModeContainer) return;
-    
-    const mapElement = mapRef.current.getDiv();
-    if (mapElement && mapElement.parentNode) {
-      mapElement.parentNode.removeChild(mapElement);
-    }
-    driveModeContainer.appendChild(mapElement);
-    mapRef.current.setOptions({ fullscreenControl: false });
-    
-    let watchId: number | null = null;
-    let userMarker: google.maps.marker.AdvancedMarkerElement | null = null;
-    
-    if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude, speed } = position.coords;
-          const loc = { lat: latitude, lng: longitude };
-          setUserLocation(loc);
-          setCurrentSpeed(speed ? Math.round(speed * 2.237) : 0);
-          
-          if (mapRef.current) {
-            mapRef.current.setCenter(loc);
-            mapRef.current.setZoom(17);
-            
-            if (!userMarker) {
-              const markerDiv = document.createElement('div');
-              markerDiv.innerHTML = '<div style="width: 24px; height: 24px; background: #0066ff; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>';
-              userMarker = new google.maps.marker.AdvancedMarkerElement({
-                map: mapRef.current,
-                position: loc,
-                content: markerDiv,
-              });
-            } else {
-              userMarker.position = loc;
-            }
-          }
-          
-          if (directionSteps[currentStepIndex]) {
-            setRemainingTime(directionSteps[currentStepIndex].duration);
-          }
-        },
-        (error) => {
-          console.warn('Geolocation error:', error);
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-      );
-    }
-    
-    return () => {
-      const mapSection = document.querySelector('.map-panel');
-      if (mapSection && mapElement && mapElement.parentNode) {
-        mapElement.parentNode.removeChild(mapElement);
-      }
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, [isDriveMode]);
+
+
 
   // Load route from URL params on mount
   useEffect(() => {
@@ -522,9 +456,6 @@ export default function Home() {
 
         if (index === chunks.length - 1) {
           directionsResultRef.current = result;
-          const steps = extractDirectionSteps(result);
-          setDirectionSteps(steps);
-          setCurrentStepIndex(0);
           setRouteSummary({
             distanceMeters: totalDistance,
             durationSeconds: totalDuration,
@@ -1573,15 +1504,23 @@ export default function Home() {
             <Clock3 className="size-3" />
             Times update when the route changes
           </div>
-          {directionSteps.length > 0 && !isCalculating && (
+          {routeSummary && !isCalculating && (
             <button
               type="button"
-              onClick={() => setIsDriveMode(true)}
+              onClick={() => {
+                if (stops.length >= 2 && stops[0].location && stops[stops.length - 1].location) {
+                  const waypoints = stops.slice(1, -1).map(s => `${s.location?.lat},${s.location?.lng}`).join('|');
+                  const origin = `${stops[0].location?.lat},${stops[0].location?.lng}`;
+                  const destination = `${stops[stops.length - 1].location?.lat},${stops[stops.length - 1].location?.lng}`;
+                  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
+                  window.open(url, '_blank');
+                }
+              }}
               className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-vermilion hover:bg-vermilion/90 text-white rounded-lg transition font-semibold"
-              aria-label="Start drive mode"
+              aria-label="Open in Google Maps"
             >
               <Navigation className="size-4" />
-              Start Drive Mode
+              Open in Google Maps
             </button>
           )}
         </aside>
@@ -1672,65 +1611,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {isDriveMode && directionSteps.length > 0 && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black">
-          <div className="h-full w-full" id="drive-mode-map" />
 
-          <div className="absolute top-0 left-0 right-0 p-4 z-20">
-            <div className="max-w-sm mx-auto bg-teal-600 rounded-2xl p-4 text-white shadow-lg">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-xs font-semibold opacity-90 mb-1">Turn</div>
-                  <div className="text-xl font-bold leading-tight mb-2">
-                    {directionSteps[currentStepIndex]?.instruction || "Destination"}
-                  </div>
-                  <div className="text-sm opacity-90">
-                    {formatDistanceShort(directionSteps[currentStepIndex]?.distance || 0)}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (mapRef.current) {
-                      const currentZoom = mapRef.current.getZoom() || 13;
-                      mapRef.current.setZoom(Math.min(currentZoom + 1, 21));
-                    }
-                  }}
-                  className="flex items-center justify-center w-10 h-10 bg-white rounded-full text-teal-600 hover:bg-white/90 transition flex-shrink-0"
-                  aria-label="Zoom in"
-                >
-                  <Zap className="size-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="absolute bottom-0 left-0 right-0 p-4 z-20 bg-gradient-to-t from-black via-black/95 to-transparent">
-            <div className="max-w-sm mx-auto">
-              <div className="flex items-center justify-between text-white">
-                <div className="flex items-baseline gap-1">
-                  <div className="text-2xl font-bold">{currentSpeed}</div>
-                  <div className="text-xs opacity-75">mph</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold">
-                    {formatDurationShort(directionSteps[currentStepIndex]?.duration || 0)}
-                  </div>
-                  <div className="text-xs opacity-75">remaining</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsDriveMode(false)}
-                  className="text-red-500 font-semibold hover:text-red-400 transition text-sm"
-                  aria-label="Exit drive mode"
-                >
-                  Exit
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
