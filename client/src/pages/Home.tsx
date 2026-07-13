@@ -1243,25 +1243,7 @@ export default function Home() {
 
           <section className="places-section border-t border-ink/10 pt-4" aria-labelledby="places-title">
             <div className="mb-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-ink/70">EV Range (km):</label>
-                <input
-                  type="number"
-                  min="100"
-                  max="1000"
-                  value={evRange}
-                  onChange={(e) => setEvRange(Math.max(100, parseInt(e.target.value) || 300))}
-                  className="w-16 rounded-sm border border-ink/20 bg-white/50 px-2 py-1 text-[11px] font-bold text-ink"
-                />
-                <Button
-                  onClick={addOptimalChargingStops}
-                  disabled={isAddingChargingStops || resolvedStops.length < 2 || !routeSummary}
-                  className="gap-1.5 bg-vermilion hover:bg-vermilion/90 text-white text-[11px] font-bold h-7 px-3"
-                >
-                  <Zap className="size-3" />
-                  Add Charging Stops
-                </Button>
-              </div>
+
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-ink/70">Sightseeing:</label>
                 <select
