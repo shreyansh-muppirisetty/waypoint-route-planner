@@ -1255,7 +1255,7 @@ export default function Home() {
                 />
                 <Button
                   onClick={addOptimalChargingStops}
-                  disabled={isAddingChargingStops || resolvedStops.length < 2}
+                  disabled={isAddingChargingStops || resolvedStops.length < 2 || !routeSummary}
                   className="gap-1.5 bg-vermilion hover:bg-vermilion/90 text-white text-[11px] font-bold h-7 px-3"
                 >
                   <Zap className="size-3" />
