@@ -471,6 +471,7 @@ export default function Home() {
 
         if (index === chunks.length - 1) {
           directionsResultRef.current = result;
+          stopsSegmentsRef.current = splitIntoLegs(stops);
           setRouteSummary({
             distanceMeters: totalDistance,
             durationSeconds: totalDuration,
@@ -1524,7 +1525,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => {
-                  const legs = stopsSegmentsRef.current.length > 0 ? stopsSegmentsRef.current : splitIntoLegs(stops);
+                  const legs = stopsSegmentsRef.current;
                   const currentLegStops = legs[currentLeg];
                   if (currentLegStops && currentLegStops.length >= 2 && currentLegStops[0].location && currentLegStops[currentLegStops.length - 1].location) {
                     const waypoints = currentLegStops.slice(1, -1).map(s => `${s.location?.lat},${s.location?.lng}`).join('|');
@@ -1532,6 +1533,9 @@ export default function Home() {
                     const destination = `${currentLegStops[currentLegStops.length - 1].location?.lat},${currentLegStops[currentLegStops.length - 1].location?.lng}`;
                     const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
                     window.open(url, '_blank');
+                    if (currentLeg < legs.length - 1) {
+                      setCurrentLeg(currentLeg + 1);
+                    }
                   }
                 }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-vermilion hover:bg-vermilion/90 text-white rounded-lg transition font-semibold"
