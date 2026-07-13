@@ -322,6 +322,27 @@ export default function Home() {
   const [directionSteps, setDirectionSteps] = useState<DirectionStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
+  // Attach existing map to drive mode fullscreen
+  useEffect(() => {
+    if (!isDriveMode || !mapRef.current) return;
+    const driveModeContainer = document.getElementById('drive-mode-map');
+    if (!driveModeContainer) return;
+    
+    const mapElement = mapRef.current.getDiv();
+    if (mapElement && mapElement.parentNode) {
+      mapElement.parentNode.removeChild(mapElement);
+    }
+    driveModeContainer.appendChild(mapElement);
+    mapRef.current.setOptions({ fullscreenControl: false });
+    
+    return () => {
+      const mapSection = document.querySelector('.map-panel');
+      if (mapSection && mapElement && mapElement.parentNode) {
+        mapElement.parentNode.removeChild(mapElement);
+      }
+    };
+  }, [isDriveMode]);
+
   // Load route from URL params on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1607,12 +1628,7 @@ export default function Home() {
 
       {isDriveMode && directionSteps.length > 0 && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black">
-          <MapView
-            initialCenter={{ lat: 48.8629, lng: 2.3297 }}
-            initialZoom={13}
-            onMapReady={onMapReady}
-            className="h-full w-full"
-          />
+          <div className="h-full w-full" id="drive-mode-map" />
 
           <button
             type="button"

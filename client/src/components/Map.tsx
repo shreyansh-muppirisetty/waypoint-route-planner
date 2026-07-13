@@ -92,18 +92,37 @@ const FORGE_BASE_URL =
   "https://forge.butterfly-effect.dev";
 const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
 
+let mapScriptLoaded = false;
+
 function loadMapScript() {
   return new Promise(resolve => {
+    if (window.google && window.google.maps) {
+      resolve(null);
+      return;
+    }
+    
+    if (mapScriptLoaded) {
+      const checkInterval = setInterval(() => {
+        if (window.google && window.google.maps) {
+          clearInterval(checkInterval);
+          resolve(null);
+        }
+      }, 100);
+      return;
+    }
+    
+    mapScriptLoaded = true;
     const script = document.createElement("script");
     script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
       resolve(null);
-      script.remove(); // Clean up immediately
+      script.remove();
     };
     script.onerror = () => {
       console.error("Failed to load Google Maps script");
+      mapScriptLoaded = false;
     };
     document.head.appendChild(script);
   });
