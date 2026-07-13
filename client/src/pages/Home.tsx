@@ -29,6 +29,10 @@ import {
   Trash2,
   Zap,
   X,
+  ChevronLeft,
+  ChevronRight,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   useCallback,
@@ -48,6 +52,40 @@ import {
 import { toast } from "sonner";
 
 const BRAND_MARK = "/manus-storage/waypoint-mark_91de7cf3_8c05158d.webp";
+
+const parseHtmlToText = (html: string): string => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+};
+
+const extractDirectionSteps = (result: google.maps.DirectionsResult): DirectionStep[] => {
+  const steps: DirectionStep[] = [];
+  result.routes[0]?.legs.forEach(leg => {
+    leg.steps.forEach(step => {
+      steps.push({
+        instruction: parseHtmlToText(step.instructions),
+        distance: step.distance?.value || 0,
+        duration: step.duration?.value || 0,
+        maneuver: step.maneuver,
+      });
+    });
+  });
+  return steps;
+};
+
+const formatDistanceShort = (meters: number): string => {
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+};
+
+const formatDurationShort = (seconds: number): string => {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+}
 const CAFE_IMAGE = "/manus-storage/place-cafe_06229247.png";
 const PARK_IMAGE = "/manus-storage/place-park_f72255d5.png";
 
@@ -76,6 +114,22 @@ type RouteSummary = {
   distanceMeters: number;
   durationSeconds: number;
   legs?: Array<{ distance: { value: number }; duration: { value: number } }>;
+};
+
+type DirectionStep = {
+  instruction: string;
+  distance: number;
+  duration: number;
+  maneuver?: string;
+};
+
+type DriveStep = {
+  stepIndex: number;
+  legIndex: number;
+  instruction: string;
+  distance: string;
+  duration: string;
+  nextInstruction?: string;
 };
 
 const makeId = () =>
@@ -261,8 +315,12 @@ export default function Home() {
   const directionsRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const calculationIdRef = useRef(0);
+  const directionsResultRef = useRef<google.maps.DirectionsResult | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
+  const [isDriveMode, setIsDriveMode] = useState(false);
+  const [directionSteps, setDirectionSteps] = useState<DirectionStep[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   // Load route from URL params on mount
   useEffect(() => {
@@ -396,6 +454,10 @@ export default function Home() {
         directionsRenderersRef.current.push(renderer);
 
         if (index === chunks.length - 1) {
+          directionsResultRef.current = result;
+          const steps = extractDirectionSteps(result);
+          setDirectionSteps(steps);
+          setCurrentStepIndex(0);
           setRouteSummary({
             distanceMeters: totalDistance,
             durationSeconds: totalDuration,
@@ -1444,6 +1506,17 @@ export default function Home() {
             <Clock3 className="size-3" />
             Times update when the route changes
           </div>
+          {directionSteps.length > 0 && !isCalculating && (
+            <button
+              type="button"
+              onClick={() => setIsDriveMode(true)}
+              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-vermilion hover:bg-vermilion/90 text-white rounded-lg transition font-semibold"
+              aria-label="Start drive mode"
+            >
+              <Navigation className="size-4" />
+              Start Drive Mode
+            </button>
+          )}
         </aside>
       </section>
 
@@ -1531,6 +1604,86 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {isDriveMode && directionSteps.length > 0 && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <MapView
+            initialCenter={{ lat: 48.8629, lng: 2.3297 }}
+            initialZoom={13}
+            onMapReady={onMapReady}
+            className="h-full w-full"
+          />
+
+          <button
+            type="button"
+            onClick={() => setIsDriveMode(false)}
+            className="absolute top-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-black/70 hover:bg-black/90 text-white rounded-lg transition"
+            aria-label="Exit drive mode"
+          >
+            <X className="size-5" />
+            Exit
+          </button>
+
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent p-6 pb-8">
+            <div className="max-w-2xl mx-auto">
+              <div className="mb-6">
+                <div className="text-white/60 text-sm font-semibold mb-2 uppercase tracking-wide">
+                  Step {currentStepIndex + 1} of {directionSteps.length}
+                </div>
+                <div className="text-white text-3xl font-bold leading-tight mb-4">
+                  {directionSteps[currentStepIndex]?.instruction}
+                </div>
+                <div className="flex items-center gap-6 text-white/80">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="size-5 text-vermilion" />
+                    <span className="text-lg font-semibold">
+                      {formatDistanceShort(directionSteps[currentStepIndex]?.distance || 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock3 className="size-5 text-vermilion" />
+                    <span className="text-lg font-semibold">
+                      {formatDurationShort(directionSteps[currentStepIndex]?.duration || 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {currentStepIndex < directionSteps.length - 1 && (
+                <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
+                  <div className="text-white/50 text-xs font-semibold mb-1 uppercase">Next</div>
+                  <div className="text-white/80 text-sm">
+                    {directionSteps[currentStepIndex + 1]?.instruction}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
+                  disabled={currentStepIndex === 0}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition font-semibold"
+                  aria-label="Previous step"
+                >
+                  <ChevronLeft className="size-5" />
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentStepIndex(Math.min(directionSteps.length - 1, currentStepIndex + 1))}
+                  disabled={currentStepIndex === directionSteps.length - 1}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-vermilion hover:bg-vermilion/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition font-semibold"
+                  aria-label="Next step"
+                >
+                  Next
+                  <ChevronRight className="size-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
