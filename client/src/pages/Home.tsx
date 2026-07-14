@@ -297,6 +297,7 @@ function StopSearchInput({
 export default function Home() {
   const [stops, setStops] = useState<Stop[]>(INITIAL_STOPS);
   const [selectedStopId, setSelectedStopId] = useState(INITIAL_STOPS[1].id);
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [travelMode, setTravelMode] = useState<TravelModeKey>("DRIVING");
   const [mapReady, setMapReady] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -1226,13 +1227,35 @@ export default function Home() {
                           {stop.address}
                         </p>
                       ) : null}
-                      <textarea
-                        placeholder="Add notes (parking, meeting time, etc)"
-                        value={stop.notes || ""}
-                        onChange={(e) => updateStop(stop.id, { notes: e.target.value })}
-                        className="mt-2 w-full rounded-sm border border-ink/20 bg-white/50 px-2 py-1.5 text-[11px] text-ink placeholder-ink/40 focus:border-ink/40 focus:outline-none"
-                        rows={2}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newExpanded = new Set(expandedNotes);
+                          if (newExpanded.has(stop.id)) {
+                            newExpanded.delete(stop.id);
+                          } else {
+                            newExpanded.add(stop.id);
+                          }
+                          setExpandedNotes(newExpanded);
+                        }}
+                        className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-ink/60 hover:text-ink"
+                      >
+                        <ChevronDown
+                          className={`size-3.5 transition-transform ${
+                            expandedNotes.has(stop.id) ? "rotate-180" : ""
+                          }`}
+                        />
+                        Notes
+                      </button>
+                      {expandedNotes.has(stop.id) && (
+                        <textarea
+                          placeholder="Add notes (parking, meeting time, etc)"
+                          value={stop.notes || ""}
+                          onChange={(e) => updateStop(stop.id, { notes: e.target.value })}
+                          className="mt-1.5 w-full rounded-sm border border-ink/20 bg-white/50 px-2 py-1.5 text-[11px] text-ink placeholder-ink/40 focus:border-ink/40 focus:outline-none"
+                          rows={2}
+                        />
+                      )}
                     </div>
                   </article>
                 );
