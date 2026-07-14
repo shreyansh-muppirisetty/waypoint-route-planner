@@ -933,6 +933,7 @@ export default function Home() {
             <h3>${stop.label}</h3>
             <p>${stop.address}</p>
             ${stop.location ? `<p style="font-size: 0.8rem; color: #999; margin-top: 0.25rem;">${stop.location.lat.toFixed(4)}°, ${stop.location.lng.toFixed(4)}°</p>` : ""}
+            ${stop.notes ? `<div style="margin-top: 0.75rem; padding: 0.5rem; background: #f0ebe5; border-left: 3px solid #d84c3c; font-size: 0.85rem;"><strong>Notes:</strong><br>${stop.notes.replace(/\n/g, "<br>")}</div>` : ""}
           </div>
         </div>
       `
