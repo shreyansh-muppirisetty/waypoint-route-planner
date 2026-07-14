@@ -136,6 +136,12 @@ type DriveStep = {
   nextInstruction?: string;
 };
 
+const encodeUtf8Base64 = (str: string) =>
+  btoa(String.fromCharCode(...new TextEncoder().encode(str)));
+
+const decodeUtf8Base64 = (str: string) =>
+  new TextDecoder().decode(Uint8Array.from(atob(str), c => c.charCodeAt(0)));
+
 const makeId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -348,7 +354,7 @@ export default function Home() {
     const routeParam = params.get("route");
     if (routeParam) {
       try {
-        const decoded = JSON.parse(atob(routeParam));
+        const decoded = JSON.parse(decodeUtf8Base64(routeParam));
         if (decoded.stops && Array.isArray(decoded.stops)) {
           const loadedStops = decoded.stops.map((s: any) => ({
             id: makeId(),
@@ -855,7 +861,7 @@ export default function Home() {
       distance: routeSummary.distanceMeters,
       duration: routeSummary.durationSeconds,
     };
-    const encoded = btoa(JSON.stringify(routeData));
+    const encoded = encodeUtf8Base64(JSON.stringify(routeData));
     const baseUrl = window.location.origin + window.location.pathname;
     const url = `${baseUrl}?route=${encoded}`;
     setShareLink(url);
