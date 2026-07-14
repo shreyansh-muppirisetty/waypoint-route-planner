@@ -363,6 +363,7 @@ export default function Home() {
             address: s.address || "",
             location: s.location,
             notes: s.notes,
+            durationMinutes: s.durationMinutes,
           }));
           setStops(loadedStops);
           if (loadedStops.length > 0) setSelectedStopId(loadedStops[0].id);
@@ -756,9 +757,11 @@ export default function Home() {
     setStops(current =>
       current.map(stop => (stop.id === id ? { ...stop, ...patch } : stop)),
     );
+    setShareLink("");
   }, []);
 
   const updateStopLabel = useCallback((id: string, value: string) => {
+    setShareLink("");
     setStops(current =>
       current.map(stop =>
         stop.id === id
@@ -858,6 +861,7 @@ export default function Home() {
         address: s.address,
         location: s.location,
         notes: s.notes,
+        durationMinutes: s.durationMinutes,
       })),
       travelMode,
       distance: routeSummary.distanceMeters,
