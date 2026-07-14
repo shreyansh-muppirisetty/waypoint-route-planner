@@ -507,14 +507,20 @@ export default function Home() {
           if (travelMode === "DRIVING") {
             const modes = ["WALKING", "BICYCLING", "TRANSIT"];
             modes.forEach(mode => {
+              const waypoints = resolvedStops.slice(1, -1).map(stop => ({
+                location: stop.location!,
+                stopover: true,
+              }));
+              
+              if (mode === "TRANSIT" && waypoints.length > 0) {
+                return;
+              }
+              
               directionsService.route(
                 {
                   origin: chunks[0][0].location!,
                   destination: chunks[chunks.length - 1][chunks[chunks.length - 1].length - 1].location!,
-                  waypoints: resolvedStops.slice(1, -1).map(stop => ({
-                    location: stop.location!,
-                    stopover: true,
-                  })),
+                  waypoints,
                   travelMode: google.maps.TravelMode[mode as keyof typeof google.maps.TravelMode],
                   provideRouteAlternatives: false,
                 },
