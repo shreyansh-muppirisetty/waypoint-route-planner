@@ -308,7 +308,6 @@ export default function Home() {
   const [selectedStopId, setSelectedStopId] = useState(INITIAL_STOPS[1].id);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const [expandedSegments, setExpandedSegments] = useState<Set<string>>(new Set());
-  const [segmentDurations, setSegmentDurations] = useState<{ [key: string]: { [mode: string]: number } }>({});
   const [travelMode, setTravelMode] = useState<TravelModeKey>("DRIVING");
   const [mapReady, setMapReady] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -470,14 +469,6 @@ export default function Home() {
         result.routes[0]?.legs.forEach((leg, legIdx) => {
           totalDistance += leg.distance?.value || 0;
           totalDuration += leg.duration?.value || 0;
-          const segmentKey = `${index}-${legIdx}`;
-          setSegmentDurations(prev => ({
-            ...prev,
-            [segmentKey]: {
-              ...prev[segmentKey],
-              DRIVING: leg.duration?.value || 0,
-            },
-          }));
         });
 
         const renderer = new google.maps.DirectionsRenderer({
@@ -526,16 +517,7 @@ export default function Home() {
                 },
                 (response, status) => {
                   if (status === google.maps.DirectionsStatus.OK && response && calculationId === calculationIdRef.current) {
-                    response.routes[0]?.legs.forEach((leg, legIdx) => {
-                      const segmentKey = `0-${legIdx}`;
-                      setSegmentDurations(prev => ({
-                        ...prev,
-                        [segmentKey]: {
-                          ...prev[segmentKey],
-                          [mode]: leg.duration?.value || 0,
-                        },
-                      }));
-                    });
+
                   }
                 },
               );
@@ -1379,44 +1361,7 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                         />
                         <span className="text-[10px] text-ink/50">min</span>
                       </div>
-                      {!isLast && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const segKey = `${index}-0`;
-                            const newExpanded = new Set(expandedSegments);
-                            if (newExpanded.has(segKey)) {
-                              newExpanded.delete(segKey);
-                            } else {
-                              newExpanded.add(segKey);
-                            }
-                            setExpandedSegments(newExpanded);
-                          }}
-                          className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-ink/60 hover:text-ink"
-                        >
-                          <ChevronDown
-                            className={`size-3.5 transition-transform ${
-                              expandedSegments.has(`${index}-0`) ? "rotate-180" : ""
-                            }`}
-                          />
-                          Travel time to next
-                        </button>
-                      )}
-                      {expandedSegments.has(`${index}-0`) && !isLast && (
-                        <div className="mt-1.5 space-y-1 rounded-sm border border-ink/10 bg-white/30 px-2 py-1.5">
-                          <div className="text-[10px] font-bold text-ink/70">Travel modes:</div>
-                          {["DRIVING", "WALKING", "BICYCLING", "TRANSIT"].map(mode => {
-                            const segKey = `${index}-0`;
-                            const dur = segmentDurations[segKey]?.[mode] || 0;
-                            return (
-                              <div key={mode} className="flex items-center justify-between text-[10px] text-ink/60">
-                                <span>{mode === "DRIVING" ? "Drive" : mode === "WALKING" ? "Walk" : mode === "BICYCLING" ? "Bike" : "Transit"}</span>
-                                <span className="font-bold text-ink">{Math.round(dur / 60)} min</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+
                     </div>
                   </article>
                 );
