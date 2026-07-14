@@ -353,6 +353,7 @@ export default function Home() {
             label: s.label || "",
             address: s.address || "",
             location: s.location,
+            notes: s.notes,
           }));
           setStops(loadedStops);
           if (loadedStops.length > 0) setSelectedStopId(loadedStops[0].id);
@@ -846,6 +847,7 @@ export default function Home() {
         label: s.label,
         address: s.address,
         location: s.location,
+        notes: s.notes,
       })),
       travelMode,
       distance: routeSummary.distanceMeters,
