@@ -101,6 +101,7 @@ type Stop = {
   placeId?: string;
   location?: google.maps.LatLngLiteral;
   notes?: string;
+  durationMinutes?: number;
 };
 
 type NearbyPlace = {
@@ -483,9 +484,10 @@ export default function Home() {
         if (index === chunks.length - 1) {
           directionsResultRef.current = result;
           stopsSegmentsRef.current = splitIntoLegs(stops);
+          const stopDurationSeconds = stops.reduce((sum, stop) => sum + ((stop.durationMinutes || 0) * 60), 0);
           setRouteSummary({
             distanceMeters: totalDistance,
-            durationSeconds: totalDuration,
+            durationSeconds: totalDuration + stopDurationSeconds,
           });
           window.setTimeout(fitAllStops, 80);
         }
@@ -1306,6 +1308,19 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                           )}
                         </div>
                       )}
+                      <div className="mt-2 flex items-center gap-2">
+                        <label className="text-[11px] font-bold text-ink/60">Duration:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="480"
+                          value={stop.durationMinutes || 0}
+                          onChange={(e) => updateStop(stop.id, { durationMinutes: parseInt(e.target.value) || 0 })}
+                          placeholder="0"
+                          className="w-16 rounded-sm border border-ink/20 bg-white/50 px-2 py-1 text-[11px] text-ink focus:border-ink/40 focus:outline-none"
+                        />
+                        <span className="text-[10px] text-ink/50">min</span>
+                      </div>
                     </div>
                   </article>
                 );
