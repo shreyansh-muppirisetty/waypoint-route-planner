@@ -307,6 +307,8 @@ export default function Home() {
   const [stops, setStops] = useState<Stop[]>(INITIAL_STOPS);
   const [selectedStopId, setSelectedStopId] = useState(INITIAL_STOPS[1].id);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [expandedSegments, setExpandedSegments] = useState<Set<string>>(new Set());
+  const [segmentDurations, setSegmentDurations] = useState<{ [key: string]: { [mode: string]: number } }>({});
   const [travelMode, setTravelMode] = useState<TravelModeKey>("DRIVING");
   const [mapReady, setMapReady] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -330,7 +332,8 @@ export default function Home() {
   const directionsResultRef = useRef<google.maps.DirectionsResult | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
-    const [currentLeg, setCurrentLeg] = useState(0);
+  const [currentLeg, setCurrentLeg] = useState(0);
+  const [itineraryTitle, setItineraryTitle] = useState("Paris afternoon");
   const stopsSegmentsRef = useRef<Stop[][]>([]);
 
   // Split stops into 10-stop segments for Google Maps navigation
@@ -368,6 +371,7 @@ export default function Home() {
           setStops(loadedStops);
           if (loadedStops.length > 0) setSelectedStopId(loadedStops[0].id);
           if (decoded.travelMode) setTravelMode(decoded.travelMode);
+          if (decoded.itineraryTitle) setItineraryTitle(decoded.itineraryTitle);
           toast.success("Route loaded from link!");
         }
       } catch (error) {
@@ -463,9 +467,17 @@ export default function Home() {
 
         if (calculationId !== calculationIdRef.current) return;
 
-        result.routes[0]?.legs.forEach(leg => {
+        result.routes[0]?.legs.forEach((leg, legIdx) => {
           totalDistance += leg.distance?.value || 0;
           totalDuration += leg.duration?.value || 0;
+          const segmentKey = `${index}-${legIdx}`;
+          setSegmentDurations(prev => ({
+            ...prev,
+            [segmentKey]: {
+              ...prev[segmentKey],
+              DRIVING: leg.duration?.value || 0,
+            },
+          }));
         });
 
         const renderer = new google.maps.DirectionsRenderer({
@@ -491,6 +503,38 @@ export default function Home() {
             durationSeconds: totalDuration + stopDurationSeconds,
           });
           window.setTimeout(fitAllStops, 80);
+          
+          if (travelMode === "DRIVING") {
+            const modes = ["WALKING", "BICYCLING", "TRANSIT"];
+            modes.forEach(mode => {
+              directionsService.route(
+                {
+                  origin: chunks[0][0].location!,
+                  destination: chunks[chunks.length - 1][chunks[chunks.length - 1].length - 1].location!,
+                  waypoints: resolvedStops.slice(1, -1).map(stop => ({
+                    location: stop.location!,
+                    stopover: true,
+                  })),
+                  travelMode: google.maps.TravelMode[mode as keyof typeof google.maps.TravelMode],
+                  provideRouteAlternatives: false,
+                },
+                (response, status) => {
+                  if (status === google.maps.DirectionsStatus.OK && response && calculationId === calculationIdRef.current) {
+                    response.routes[0]?.legs.forEach((leg, legIdx) => {
+                      const segmentKey = `0-${legIdx}`;
+                      setSegmentDurations(prev => ({
+                        ...prev,
+                        [segmentKey]: {
+                          ...prev[segmentKey],
+                          [mode]: leg.duration?.value || 0,
+                        },
+                      }));
+                    });
+                  }
+                },
+              );
+            });
+          }
         }
       }
     } catch (error) {
@@ -866,13 +910,14 @@ export default function Home() {
       travelMode,
       distance: routeSummary.distanceMeters,
       duration: routeSummary.durationSeconds,
+      itineraryTitle,
     };
     const encoded = encodeUtf8Base64(JSON.stringify(routeData));
     const baseUrl = window.location.origin + window.location.pathname;
     const url = `${baseUrl}?route=${encoded}`;
     setShareLink(url);
     return url;
-  }, [stops, travelMode, routeSummary]);
+  }, [stops, travelMode, routeSummary, itineraryTitle]);
 
   const exportAsHTML = useCallback(() => {
     const url = generateShareLink();
@@ -1126,9 +1171,12 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
           <div className="mt-5 flex items-end justify-between gap-4">
             <div className="relative z-[1]">
               <p className="legend-label mb-1.5">Current itinerary</p>
-              <h2 className="font-editorial text-[31px] leading-none text-ink">
-                Paris afternoon
-              </h2>
+              <input
+                type="text"
+                value={itineraryTitle}
+                onChange={(e) => setItineraryTitle(e.target.value)}
+                className="font-editorial text-[31px] leading-none text-ink bg-transparent border-b-2 border-transparent hover:border-ink/30 focus:border-ink outline-none w-full"
+              />
               <p className="coordinate-label mt-2">48.8566° N · 2.3522° E · FR–75</p>
             </div>
             <div className="hidden text-right sm:block">
@@ -1325,6 +1373,44 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                         />
                         <span className="text-[10px] text-ink/50">min</span>
                       </div>
+                      {!isLast && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const segKey = `${index}-0`;
+                            const newExpanded = new Set(expandedSegments);
+                            if (newExpanded.has(segKey)) {
+                              newExpanded.delete(segKey);
+                            } else {
+                              newExpanded.add(segKey);
+                            }
+                            setExpandedSegments(newExpanded);
+                          }}
+                          className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-ink/60 hover:text-ink"
+                        >
+                          <ChevronDown
+                            className={`size-3.5 transition-transform ${
+                              expandedSegments.has(`${index}-0`) ? "rotate-180" : ""
+                            }`}
+                          />
+                          Travel time to next
+                        </button>
+                      )}
+                      {expandedSegments.has(`${index}-0`) && !isLast && (
+                        <div className="mt-1.5 space-y-1 rounded-sm border border-ink/10 bg-white/30 px-2 py-1.5">
+                          <div className="text-[10px] font-bold text-ink/70">Travel modes:</div>
+                          {["DRIVING", "WALKING", "BICYCLING", "TRANSIT"].map(mode => {
+                            const segKey = `${index}-0`;
+                            const dur = segmentDurations[segKey]?.[mode] || 0;
+                            return (
+                              <div key={mode} className="flex items-center justify-between text-[10px] text-ink/60">
+                                <span>{mode === "DRIVING" ? "Drive" : mode === "WALKING" ? "Walk" : mode === "BICYCLING" ? "Bike" : "Transit"}</span>
+                                <span className="font-bold text-ink">{Math.round(dur / 60)} min</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </article>
                 );
