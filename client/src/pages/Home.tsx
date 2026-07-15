@@ -886,7 +886,7 @@ export default function Home() {
     clearMapObjects();
   }, [clearMapObjects]);
 
-  const generateShareLink = useCallback(() => {
+  const generateShareLink = useCallback(async () => {
     const routeData = {
       stops: stops.map(s => ({
         label: s.label,
@@ -902,9 +902,16 @@ export default function Home() {
     };
     const encoded = encodeUtf8Base64(JSON.stringify(routeData));
     const baseUrl = window.location.origin + window.location.pathname;
-    const url = `${baseUrl}?route=${encoded}`;
-    setShareLink(url);
-    return url;
+    const longUrl = `${baseUrl}?route=${encoded}`;
+    try {
+      const shortResp = await fetch(`https://tinyurl.com/api/create?url=${encodeURIComponent(longUrl)}`);
+      const shortUrl = await shortResp.text();
+      setShareLink(shortUrl);
+      return shortUrl;
+    } catch {
+      setShareLink(longUrl);
+      return longUrl;
+    }
   }, [stops, travelMode, routeSummary, itineraryTitle]);
 
   const exportAsHTML = useCallback(() => {
@@ -1035,9 +1042,9 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
     toast.success("Route exported as Markdown.");
   }, [stops, routeSummary]);
 
-  const copyShareLink = useCallback(() => {
+  const copyShareLink = useCallback(async () => {
     if (!shareLink) {
-      const url = generateShareLink();
+      const url = await generateShareLink();
       navigator.clipboard.writeText(url).then(() => {
         toast.success("Link copied to clipboard!");
       }).catch(() => {
@@ -1592,6 +1599,7 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                 onClick={() => {
                   const legs = stopsSegmentsRef.current;
                   const currentLegStops = legs[currentLeg];
+                  console.log('Button clicked. Legs:', legs.length, 'Current leg:', currentLeg, 'Stops in leg:', currentLegStops?.length);
                   if (currentLegStops && currentLegStops.length >= 2 && currentLegStops[0].location && currentLegStops[currentLegStops.length - 1].location) {
                     const waypoints = currentLegStops.slice(1, -1).map(s => `${s.location?.lat},${s.location?.lng}`).join('|');
                     const origin = `${currentLegStops[0].location?.lat},${currentLegStops[0].location?.lng}`;
@@ -1713,8 +1721,8 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                   </>
                 ) : (
                   <Button
-                    onClick={() => {
-                      const url = generateShareLink();
+                    onClick={async () => {
+                      const url = await generateShareLink();
                       navigator.clipboard.writeText(url);
                       toast.success("Link copied to clipboard!");
                     }}
