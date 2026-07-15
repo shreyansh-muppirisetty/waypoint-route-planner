@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapView } from "@/components/Map";
 import { Streamdown } from "streamdown";
+import { QRCodeSVG as QRCode } from "qrcode.react";
 import {
   Bike,
   Car,
@@ -331,6 +332,7 @@ export default function Home() {
   const directionsResultRef = useRef<google.maps.DirectionsResult | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [shareLink, setShareLink] = useState("");
+  const [shareAlias, setShareAlias] = useState("");
   const [currentLeg, setCurrentLeg] = useState(0);
   const [itineraryTitle, setItineraryTitle] = useState("Paris afternoon");
   const stopsSegmentsRef = useRef<Stop[][]>([]);
@@ -886,7 +888,7 @@ export default function Home() {
     clearMapObjects();
   }, [clearMapObjects]);
 
-  const generateShareLink = useCallback(async () => {
+  const generateShareLink = useCallback(() => {
     const routeData = {
       stops: stops.map(s => ({
         label: s.label,
@@ -902,16 +904,9 @@ export default function Home() {
     };
     const encoded = encodeUtf8Base64(JSON.stringify(routeData));
     const baseUrl = window.location.origin + window.location.pathname;
-    const longUrl = `${baseUrl}?route=${encoded}`;
-    try {
-      const shortResp = await fetch(`https://tinyurl.com/api/create?url=${encodeURIComponent(longUrl)}`);
-      const shortUrl = await shortResp.text();
-      setShareLink(shortUrl);
-      return shortUrl;
-    } catch {
-      setShareLink(longUrl);
-      return longUrl;
-    }
+    const url = `${baseUrl}?route=${encoded}`;
+    setShareLink(url);
+    return url;
   }, [stops, travelMode, routeSummary, itineraryTitle]);
 
   const exportAsHTML = useCallback(() => {
@@ -1042,9 +1037,9 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
     toast.success("Route exported as Markdown.");
   }, [stops, routeSummary]);
 
-  const copyShareLink = useCallback(async () => {
+  const copyShareLink = useCallback(() => {
     if (!shareLink) {
-      const url = await generateShareLink();
+      const url = generateShareLink();
       navigator.clipboard.writeText(url).then(() => {
         toast.success("Link copied to clipboard!");
       }).catch(() => {
@@ -1718,11 +1713,26 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                         Copy
                       </Button>
                     </div>
+                    <div className="flex gap-3 items-start">
+                      <div className="flex-1 space-y-2">
+                        <label className="text-xs font-semibold">Alias (optional)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g., paris-afternoon"
+                          value={shareAlias}
+                          onChange={(e) => setShareAlias(e.target.value)}
+                          className="w-full px-3 py-2 text-xs border border-border rounded-md bg-white/50"
+                        />
+                      </div>
+                      <div className="p-2 bg-white/50 rounded-md">
+                        <QRCode value={shareLink} size={80} level="H" />
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <Button
-                    onClick={async () => {
-                      const url = await generateShareLink();
+                    onClick={() => {
+                      const url = generateShareLink();
                       navigator.clipboard.writeText(url);
                       toast.success("Link copied to clipboard!");
                     }}
