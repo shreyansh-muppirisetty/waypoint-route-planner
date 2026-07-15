@@ -336,6 +336,7 @@ export default function Home() {
   const [currentLeg, setCurrentLeg] = useState(0);
   const [itineraryTitle, setItineraryTitle] = useState("Paris afternoon");
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [routeExpanded, setRouteExpanded] = useState(true);
   const stopsSegmentsRef = useRef<Stop[][]>([]);
 
   // Split stops into 10-stop segments for Google Maps navigation
@@ -1545,7 +1546,15 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
             )}
           </section>
         </div>
-        <aside className="route-summary" aria-label="Route summary">
+        <button
+          type="button"
+          onClick={() => setRouteExpanded(!routeExpanded)}
+          className="w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-ink/70 text-sm font-medium transition"
+        >
+          {routeExpanded ? '▼ Hide route' : '▶ Show route'}
+        </button>
+
+        <aside className="route-summary" style={{ display: routeExpanded ? 'block' : 'none' }} aria-label="Route summary">
           <div className="route-summary-kicker">
             <RouteIcon className="size-3.5" />
             <span>{isCalculating ? "Calculating" : "Route ready"}</span>
@@ -1621,6 +1630,14 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
         </aside>
       </section>
 
+      <button
+        type="button"
+        onClick={() => setMapExpanded(!mapExpanded)}
+        className="w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-ink/70 text-sm font-medium transition"
+      >
+        {mapExpanded ? '▼ Hide map' : '▶ Show map'}
+      </button>
+
       <section className="map-panel" style={{ display: mapExpanded ? 'block' : 'none' }} aria-label="Map">
         <MapView
           initialCenter={{ lat: 48.8629, lng: 2.3297 }}
@@ -1638,14 +1655,6 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
           <span>Fit route</span>
         </button>
       </section>
-
-      <button
-        type="button"
-        onClick={() => setMapExpanded(!mapExpanded)}
-        className="w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-ink/70 text-sm font-medium transition"
-      >
-        {mapExpanded ? '▼ Hide map' : '▶ Show map'}
-      </button>
 
       <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
         <DialogContent className="sm:max-w-lg">
