@@ -337,6 +337,7 @@ export default function Home() {
   const [itineraryTitle, setItineraryTitle] = useState("Paris afternoon");
   const [mapExpanded, setMapExpanded] = useState(false);
   const [routeExpanded, setRouteExpanded] = useState(true);
+  const [destinationsExpanded, setDestinationsExpanded] = useState(true);
   const stopsSegmentsRef = useRef<Stop[][]>([]);
 
   // Split stops into 10-stop segments for Google Maps navigation
@@ -1237,7 +1238,15 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
               </Button>
             </div>
 
-            <div className="route-spine mt-5">
+            <button
+              type="button"
+              onClick={() => setDestinationsExpanded(!destinationsExpanded)}
+              className="w-full px-4 py-2 bg-white/10 hover:bg-white/20 text-ink/70 text-sm font-medium transition"
+            >
+              {destinationsExpanded ? '▼ Hide destinations' : '▶ Show destinations'}
+            </button>
+
+            <div className="route-spine mt-5" style={{ display: destinationsExpanded ? 'block' : 'none' }}>
               {stops.map((stop, index) => {
                 const isSelected = selectedStopId === stop.id;
                 const isFirst = index === 0;
