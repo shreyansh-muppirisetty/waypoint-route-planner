@@ -657,7 +657,7 @@
   }
 
   .map-panel {
-    display: block;
+    display: none;
     height: 30vh;
     order: -1;
   }
