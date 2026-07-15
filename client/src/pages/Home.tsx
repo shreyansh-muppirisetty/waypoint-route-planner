@@ -1544,26 +1544,6 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
             )}
           </section>
         </div>
-      </section>
-
-      <section className="map-panel" aria-label="Map">
-        <MapView
-          initialCenter={{ lat: 48.8629, lng: 2.3297 }}
-          initialZoom={13}
-          onMapReady={onMapReady}
-          className="h-full min-h-[42vh] w-full"
-        />
-
-        <button
-          type="button"
-          onClick={fitAllStops}
-          className="map-locate-button"
-          aria-label="Fit the whole route on the map"
-        >
-          <LocateFixed className="size-4" />
-          <span>Fit route</span>
-        </button>
-
         <aside className="route-summary" aria-label="Route summary">
           <div className="route-summary-kicker">
             <RouteIcon className="size-3.5" />
@@ -1638,6 +1618,25 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
             </div>
           )}
         </aside>
+      </section>
+
+      <section className="map-panel" aria-label="Map">
+        <MapView
+          initialCenter={{ lat: 48.8629, lng: 2.3297 }}
+          initialZoom={13}
+          onMapReady={onMapReady}
+          className="h-full min-h-[42vh] w-full"
+        />
+
+        <button
+          type="button"
+          onClick={fitAllStops}
+          className="map-locate-button"
+          aria-label="Fit the whole route on the map"
+        >
+          <LocateFixed className="size-4" />
+          <span>Fit route</span>
+        </button>
       </section>
 
       <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>

@@ -621,23 +621,31 @@
 }
 
 @media (max-width: 639px) {
-  body {
+  html, body {
     overflow: auto;
+    height: auto;
+  }
+
+  #root {
+    min-height: auto;
   }
 
   .route-app {
     display: flex;
     flex-direction: column;
     height: auto;
-    min-height: 100dvh;
     grid-template-columns: none;
   }
 
   .planner-panel {
     height: auto;
-    min-height: 100dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
+    flex: 1;
+  }
+
+  .planner-scroll {
+    overflow-y: visible;
+    flex: none;
   }
 
   .map-panel {
@@ -653,11 +661,34 @@
   }
 
   .route-summary {
-    position: relative;
+    position: static;
     right: auto;
     bottom: auto;
     left: auto;
     margin: 1rem 0.75rem;
+    max-width: none;
+    border: 1px solid rgb(24 32 29 / 0.12);
+    background: rgb(244 240 232 / 0.8);
+    color: rgb(24 32 29 / 0.9);
+    box-shadow: 0 4px 12px rgb(24 32 29 / 0.08);
+    clip-path: none;
+  }
+
+  .route-summary-kicker {
+    color: #f05a3c;
+  }
+
+  .route-summary .summary-label {
+    color: rgb(24 32 29 / 0.55);
+  }
+
+  .route-summary strong {
+    color: rgb(24 32 29 / 0.9);
+  }
+
+  .route-summary button {
+    background: #f05a3c;
+    color: white;
   }
 }
 
