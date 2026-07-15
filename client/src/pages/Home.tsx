@@ -1272,7 +1272,7 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                             type="button"
                             aria-label="Move destination up"
                             disabled={isFirst}
-                            className="row-action"
+                            className="row-action hidden sm:inline-flex"
                             onClick={event => {
                               event.stopPropagation();
                               moveStop(index, -1);
@@ -1284,7 +1284,7 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                             type="button"
                             aria-label="Move destination down"
                             disabled={isLast}
-                            className="row-action"
+                            className="row-action hidden sm:inline-flex"
                             onClick={event => {
                               event.stopPropagation();
                               moveStop(index, 1);
@@ -1296,9 +1296,10 @@ ${stop.location ? `**Coordinates:** ${stop.location.lat.toFixed(4)}°, ${stop.lo
                             type="button"
                             aria-label="Remove destination"
                             className="row-action hover:!text-red-600"
+                            disabled={isFirst || isLast}
                             onClick={event => {
                               event.stopPropagation();
-                              removeStop(stop.id);
+                              if (!isFirst && !isLast) removeStop(stop.id);
                             }}
                           >
                             <X className="size-3.5" />
